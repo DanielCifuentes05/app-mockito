@@ -13,6 +13,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -265,5 +266,93 @@ class ExamenServiceImplTest {
         Examen examen = service.findExamenPorNombreconPreguntas("Matematicas");
         assertEquals(5L, examen.getId());
         assertEquals("Matematicas", examen.getNombre());
+    }
+
+    @Test
+    void testSpy() {
+        ExamenRepository examenRepository = spy(ExamenRepositoryImpl.class);
+        PreguntaRepository preguntaRepository = spy(PreguntasRepositoryImpl.class);
+        ExamenService examenService = new ExamenServiceImpl(examenRepository, preguntaRepository);
+
+        List<String> preguntas = Arrays.asList("aritmetica");
+        //when(preguntaRepository.findPreguntasPorExamenId(anyLong())).thenReturn(Datos.PREGUNTAS);
+        doReturn(preguntas).when(preguntaRepository).findPreguntasPorExamenId(anyLong());
+
+        Examen examen = examenService.findExamenPorNombreconPreguntas("Matematicas");
+        assertEquals(5L, examen.getId());
+        assertEquals("Matematicas", examen.getNombre());
+        assertEquals(1, examen.getPreguntas().size());
+        assertTrue(examen.getPreguntas().contains("aritmetica"));
+
+        verify(examenRepository).findAll();
+        verify(preguntaRepository).findPreguntasPorExamenId(anyLong());
+
+    }
+
+    @Test
+    void testOrdenDeInvocaciones() {
+        when(repository.findAll()).thenReturn(Datos.EXAMENES);
+
+        service.findExamenPorNombreconPreguntas("Matematicas");
+        service.findExamenPorNombreconPreguntas("Lenguaje");
+
+        InOrder inOrder = inOrder(preguntaRepository);
+        inOrder.verify(preguntaRepository).findPreguntasPorExamenId(5L);
+        inOrder.verify(preguntaRepository).findPreguntasPorExamenId(6L);
+    }
+
+    @Test
+    void testOrdenDeInvocaciones2() {
+        when(repository.findAll()).thenReturn(Datos.EXAMENES);
+
+        service.findExamenPorNombreconPreguntas("Matematicas");
+        service.findExamenPorNombreconPreguntas("Lenguaje");
+
+        InOrder inOrder = inOrder(repository, preguntaRepository);
+        inOrder.verify(repository).findAll();
+        inOrder.verify(preguntaRepository).findPreguntasPorExamenId(5L);
+        inOrder.verify(repository).findAll();
+        inOrder.verify(preguntaRepository).findPreguntasPorExamenId(6L);
+    }
+
+    @Test
+    void testNumeroDeInvocaciones() {
+        when(repository.findAll()).thenReturn(Datos.EXAMENES);
+        service.findExamenPorNombreconPreguntas("Matematicas");
+
+        verify(preguntaRepository).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, times(1)).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atLeast(1)).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atLeastOnce()).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atMost(1)).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atMostOnce()).findPreguntasPorExamenId(5L);
+
+    }
+
+    @Test
+    void testNumeroDeInvocaciones2() {
+        when(repository.findAll()).thenReturn(Datos.EXAMENES);
+        service.findExamenPorNombreconPreguntas("Matematicas");
+
+        //verify(preguntaRepository).findPreguntasPorExamenId(5L); falla
+        verify(preguntaRepository, times(2)).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atLeast(1)).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atLeastOnce()).findPreguntasPorExamenId(5L);
+        verify(preguntaRepository, atMost(2)).findPreguntasPorExamenId(5L);
+        //verify(preguntaRepository, atMostOnce()).findPreguntasPorExamenId(5L);
+
+    }
+
+    @Test
+    void testNumeroDeInvocaciones3() {
+        when(repository.findAll()).thenReturn(Collections.emptyList());
+        service.findExamenPorNombreconPreguntas("Matematicas");
+
+        verify(preguntaRepository, never()).findPreguntasPorExamenId(5L);
+        verifyNoInteractions(preguntaRepository);
+
+        verify(repository).findAll();
+        verify(repository, times(1)).findAll();
+
     }
 }
